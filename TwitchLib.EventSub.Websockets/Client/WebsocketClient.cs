@@ -91,7 +91,73 @@ namespace TwitchLib.EventSub.Websockets.Client
             }
         }
 
+#if NET6_0_OR_GREATER
+        /// <summary>
+        /// Background operation to process incoming data via the websocket
+        /// </summary>
+        /// <returns>Task representing the background operation</returns>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        private async Task ProcessDataAsync()
+        {
+            const int minimumBufferSize = 256;
+            var storeSize = 4096;
+            var decoder = Encoding.UTF8.GetDecoder();
 
+            var store = MemoryPool<byte>.Shared.Rent(storeSize).Memory;
+            var buffer = MemoryPool<byte>.Shared.Rent(minimumBufferSize).Memory;
+
+            var payloadSize = 0;
+            while (IsConnected)
+            {
+                try
+                {
+                    ValueWebSocketReceiveResult receiveResult;
+                    do
+                    {
+                        receiveResult = await _webSocket.ReceiveAsync(buffer, CancellationToken.None);
+
+                        if (payloadSize + receiveResult.Count >= storeSize)
+                        {
+                            storeSize *= 2;
+                            var newStore = MemoryPool<byte>.Shared.Rent(storeSize).Memory;
+                            store.CopyTo(newStore);
+                            store = newStore;
+                        }
+
+                        buffer.CopyTo(store[payloadSize..]);
+
+                        payloadSize += receiveResult.Count;
+                    } while (!receiveResult.EndOfMessage);
+                    switch (receiveResult.MessageType)
+                    {
+                        case WebSocketMessageType.Text:
+                            {
+                                var intermediate = MemoryPool<char>.Shared.Rent(payloadSize).Memory;
+                                if (payloadSize == 0)
+                                    continue;
+                                decoder.Convert(store.Span[..payloadSize], intermediate.Span, true, out _, out var charsCount, out _);
+                                var message = intermediate[..charsCount];
+                                OnDataReceived?.Invoke(this, new DataReceivedArgs { Message = message.Span.ToString() });
+                                payloadSize = 0;
+                                break;
+                            }
+                        case WebSocketMessageType.Binary:
+                            break;
+                        case WebSocketMessageType.Close:
+                            _logger?.LogCritical($"{(WebSocketCloseStatus)_webSocket.CloseStatus!} - {_webSocket.CloseStatusDescription!}");
+                            break;
+                        default:
+                            throw new ArgumentOutOfRangeException();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    OnErrorOccurred?.Invoke(this, new ErrorOccuredArgs { Exception = ex });
+                    break;
+                }
+            }
+        }
+#else
         /// <summary>
         /// Background operation to process incoming data via the websocket
         /// </summary>
@@ -100,56 +166,46 @@ namespace TwitchLib.EventSub.Websockets.Client
         private async Task ProcessDataAsync()
         {
             const int minimumBufferSize = 8192;
-
             var buffer = new ArraySegment<byte>(new byte[minimumBufferSize]);
             var payloadSize = 0;
-
+            
             while (IsConnected)
             {
                 try
                 {
                     WebSocketReceiveResult receiveResult;
                     var memory = new MemoryStream();
-
                     do
                     {
                         receiveResult = await _webSocket.ReceiveAsync(buffer, CancellationToken.None);
-
                         if (buffer.Array == null)
                             continue;
-
                         memory.Write(buffer.Array, buffer.Offset, receiveResult.Count);
                         payloadSize += receiveResult.Count;
                     } while (!receiveResult.EndOfMessage);
-
                     switch (receiveResult.MessageType)
                     {
                         case WebSocketMessageType.Text:
-                            {
-                                if (payloadSize == 0)
-                                    continue;
-
-                                memory.Seek(0, SeekOrigin.Begin);
-
-                                var reader = new StreamReader(memory, Encoding.UTF8);
-
-                                OnDataReceived?.Invoke(this, new DataReceivedArgs { Message = await reader.ReadToEndAsync() });
-
-                                memory.Dispose();
-                                reader.Dispose();
-                                break;
-                            }
+                        {
+                            if (payloadSize == 0)
+                                continue;
+                            memory.Seek(0, SeekOrigin.Begin);
+                            var reader = new StreamReader(memory, Encoding.UTF8);
+                            OnDataReceived?.Invoke(this, new DataReceivedArgs { Message = await reader.ReadToEndAsync() });
+                            memory.Dispose();
+                            reader.Dispose();
+                            break;
+                        }
                         case WebSocketMessageType.Binary:
                             break;
                         case WebSocketMessageType.Close:
                             if (_webSocket.CloseStatus != null)
-                                _logger?.LogCritical($"{(WebSocketCloseStatus)_webSocket.CloseStatus} - {_webSocket.CloseStatusDescription}");
+                                _logger?.LogCritical($"{(WebSocketCloseStatus) _webSocket.CloseStatus} - {_webSocket.CloseStatusDescription}");
                             break;
                         default:
                             throw new ArgumentOutOfRangeException();
                     }
                 }
-
                 catch (Exception ex)
                 {
                     OnErrorOccurred?.Invoke(this, new ErrorOccuredArgs { Exception = ex });
@@ -157,6 +213,7 @@ namespace TwitchLib.EventSub.Websockets.Client
                 }
             }
         }
+#endif
 
         /// <summary>
         /// Cleanup of any unused resources as per IDisposable guidelines
