@@ -115,6 +115,14 @@ namespace TwitchLib.EventSub.Websockets.Client
                     do
                     {
                         receiveResult = await _webSocket.ReceiveAsync(buffer, CancellationToken.None);
+                        
+                        if (payloadSize + receiveResult.Count >= storeSize)
+                        {
+                            storeSize *= 2;
+                            var newStore = MemoryPool<byte>.Shared.Rent(storeSize).Memory;
+                            store.CopyTo(newStore);
+                            store = newStore;
+                        }
 
                         if (payloadSize + receiveResult.Count >= storeSize)
                         {
