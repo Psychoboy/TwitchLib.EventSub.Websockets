@@ -142,6 +142,15 @@ namespace TwitchLib.EventSub.Websockets
         public event AsyncEventHandler<ChannelModeratorArgs> ChannelModeratorRemove;
 
         /// <summary>
+        /// Event that triggers on "channel.vip.add" notifications
+        /// </summary>
+        public event AsyncEventHandler<ChannelVipArgs> ChannelVipAdd;
+        /// <summary>
+        /// Event that triggers on "channel.vip.remove" notifications
+        /// </summary>
+        public event AsyncEventHandler<ChannelVipArgs> ChannelVipRemove;
+
+        /// <summary>
         /// Event that triggers on "channel.channel_points_custom_reward.add" notifications
         /// </summary>
         public event AsyncEventHandler<ChannelPointsCustomRewardArgs> ChannelPointsCustomRewardAdd;
@@ -153,6 +162,11 @@ namespace TwitchLib.EventSub.Websockets
         /// Event that triggers on "channel.channel_points_custom_reward.update" notifications
         /// </summary>
         public event AsyncEventHandler<ChannelPointsCustomRewardArgs> ChannelPointsCustomRewardUpdate;
+
+        /// <summary>
+        /// Event that triggers on "channel.channel_points_automatic_reward_redemption.add" notifications
+        /// </summary>
+        public event AsyncEventHandler<ChannelPointsAutomaticRewardRedemptionArgs> ChannelPointsAutomaticRewardRedemptionAdd;
 
         /// <summary>
         /// Event that triggers on "channel.channel_points_custom_reward_redemption.add" notifications
@@ -232,6 +246,16 @@ namespace TwitchLib.EventSub.Websockets
         /// Event that triggers on "channel.subscription.message" notifications
         /// </summary>
         public event AsyncEventHandler<ChannelSubscriptionMessageArgs> ChannelSubscriptionMessage;
+
+        /// <summary>
+        /// Event that triggers on "channel.suspicious_user.message" notifications
+        /// </summary>
+        public event AsyncEventHandler<ChannelSuspiciousUserMessageArgs> ChannelSuspiciousUserMessage;
+
+        /// <summary>
+        /// Event that triggers on "channel.suspicious_user.update" notifications
+        /// </summary>
+        public event AsyncEventHandler<ChannelSuspiciousUserUpdateArgs> ChannelSuspiciousUserUpdate;
 
         /// <summary>
         /// Event that triggers on "channel.unban" notifications
@@ -603,7 +627,7 @@ namespace TwitchLib.EventSub.Websockets
 
             if (data != null)
                 _logger?.LogForceDisconnected(data.Payload.Session.Id, data.Payload.Session.DisconnectedAt, data.Payload.Session.DisconnectReason);
-            
+
             await WebsocketDisconnected.InvokeAsync(this, EventArgs.Empty);
         }
 
@@ -646,16 +670,26 @@ namespace TwitchLib.EventSub.Websockets
         /// </summary>
         /// <param name="eventName">name of the event to raise</param>
         /// <param name="args">args to pass with the event</param>
-        internal void RaiseEvent(string eventName, object args = null)
+        internal async void RaiseEvent(string eventName, object args = null)
         {
             var fInfo = GetType().GetField(eventName, BindingFlags.Instance | BindingFlags.NonPublic);
 
             if (fInfo?.GetValue(this) is not MulticastDelegate multi)
                 return;
 
+            var parameters = new object[] { this, args ?? EventArgs.Empty };
             foreach (var del in multi.GetInvocationList())
             {
-                del.Method.Invoke(del.Target, args == null ? new object[] { this, EventArgs.Empty } : new[] { this, args });
+                try
+                {
+                    var result = del.Method.Invoke(del.Target, parameters);
+                    if (result is Task task)
+                        await task;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogRaiseEventExeption(eventName, ex);
+                }
             }
         }
     }
