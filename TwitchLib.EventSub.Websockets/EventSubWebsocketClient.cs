@@ -258,6 +258,16 @@ namespace TwitchLib.EventSub.Websockets
         public event AsyncEventHandler<ChannelSuspiciousUserUpdateArgs> ChannelSuspiciousUserUpdate;
 
         /// <summary>
+        /// Event that triggers on "channel.warning.acknowledge" notifications
+        /// </summary>
+        public event AsyncEventHandler<ChannelWarningAcknowledgeArgs> ChannelWarningAcknowledge;
+
+        /// <summary>
+        /// Event that triggers on "channel.warning.send" notifications
+        /// </summary>
+        public event AsyncEventHandler<ChannelWarningSendArgs> ChannelWarningSend;
+
+        /// <summary>
         /// Event that triggers on "channel.unban" notifications
         /// </summary>
         public event AsyncEventHandler<ChannelUnbanArgs> ChannelUnban;
@@ -280,6 +290,11 @@ namespace TwitchLib.EventSub.Websockets
         /// Event that triggers on "user.update" notifications
         /// </summary>
         public event AsyncEventHandler<UserUpdateArgs> UserUpdate;
+
+        /// <summary>
+        /// Event that triggers on "user.whisper.message" notifications
+        /// </summary>
+        public event AsyncEventHandler<UserWhisperMessageArgs> UserWhisperMessage;
 
         #endregion
 
