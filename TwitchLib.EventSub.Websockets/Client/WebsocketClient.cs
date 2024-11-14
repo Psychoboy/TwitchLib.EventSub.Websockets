@@ -110,7 +110,6 @@ namespace TwitchLib.EventSub.Websockets.Client
             var buffer = MemoryPool<byte>.Shared.Rent(minimumBufferSize).Memory;
 
             var payloadSize = 0;
-
             while (IsConnected)
             {
                 try
@@ -119,7 +118,7 @@ namespace TwitchLib.EventSub.Websockets.Client
                     do
                     {
                         receiveResult = await _webSocket.ReceiveAsync(buffer, CancellationToken.None);
-                        
+
                         if (payloadSize + receiveResult.Count >= storeSize)
                         {
                             storeSize += 
@@ -141,19 +140,16 @@ namespace TwitchLib.EventSub.Websockets.Client
                     switch (receiveResult.MessageType)
                     {
                         case WebSocketMessageType.Text:
-                        {
-                            var intermediate = MemoryPool<char>.Shared.Rent(payloadSize).Memory;
-
-                            if (payloadSize == 0)
-                                continue;
-
-                            decoder.Convert(store.Span[..payloadSize], intermediate.Span, true, out _, out var charsCount, out _);
-                            var message = intermediate[..charsCount];
-
-                            OnDataReceived?.Invoke(this, new DataReceivedArgs { Message = message.Span.ToString() });
-                            payloadSize = 0;
-                            break;
-                        }
+                            {
+                                var intermediate = MemoryPool<char>.Shared.Rent(payloadSize).Memory;
+                                if (payloadSize == 0)
+                                    continue;
+                                decoder.Convert(store.Span[..payloadSize], intermediate.Span, true, out _, out var charsCount, out _);
+                                var message = intermediate[..charsCount];
+                                OnDataReceived?.Invoke(this, new DataReceivedArgs { Message = message.Span.ToString() });
+                                payloadSize = 0;
+                                break;
+                            }
                         case WebSocketMessageType.Binary:
                             break;
                         case WebSocketMessageType.Close:
@@ -179,7 +175,6 @@ namespace TwitchLib.EventSub.Websockets.Client
         private async Task ProcessDataAsync()
         {
             const int minimumBufferSize = 8192;
-
             var buffer = new ArraySegment<byte>(new byte[minimumBufferSize]);
             var payloadSize = 0;
             
@@ -189,11 +184,9 @@ namespace TwitchLib.EventSub.Websockets.Client
                 {
                     WebSocketReceiveResult receiveResult;
                     var memory = new MemoryStream();
-
                     do
                     {
                         receiveResult = await _webSocket.ReceiveAsync(buffer, CancellationToken.None);
-
                         if (buffer.Array == null)
                             continue;
 
@@ -202,20 +195,15 @@ namespace TwitchLib.EventSub.Websockets.Client
 #pragma warning restore CA1849
                         payloadSize += receiveResult.Count;
                     } while (!receiveResult.EndOfMessage);
-
                     switch (receiveResult.MessageType)
                     {
                         case WebSocketMessageType.Text:
                         {
                             if (payloadSize == 0)
                                 continue;
-
                             memory.Seek(0, SeekOrigin.Begin);
-
                             var reader = new StreamReader(memory, Encoding.UTF8);
-
                             OnDataReceived?.Invoke(this, new DataReceivedArgs { Message = await reader.ReadToEndAsync() });
-
                             memory.Dispose();
                             reader.Dispose();
                             break;
@@ -230,7 +218,6 @@ namespace TwitchLib.EventSub.Websockets.Client
                             throw new ArgumentOutOfRangeException();
                     }
                 }
-
                 catch (Exception ex)
                 {
                     OnErrorOccurred?.Invoke(this, new ErrorOccuredArgs { Exception = ex });
