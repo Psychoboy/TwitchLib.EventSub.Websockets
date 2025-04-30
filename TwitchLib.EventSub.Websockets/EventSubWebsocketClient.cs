@@ -536,10 +536,7 @@ namespace TwitchLib.EventSub.Websockets
                 if (_lastReceived != DateTimeOffset.MinValue)
                     if (_keepAliveTimeout != TimeSpan.Zero)
                         if (_lastReceived.Add(_keepAliveTimeout) < DateTimeOffset.Now)
-                        {
-                            await MessageReceived.InvokeAsync(this, new MessageReceivedEventArgs());
                             break;
-                        }
 
                 await Task.Delay(TimeSpan.FromSeconds(1), _cts.Token);
             }
@@ -557,7 +554,7 @@ namespace TwitchLib.EventSub.Websockets
         private async Task OnDataReceived(object sender, DataReceivedArgs e)
         {
             _lastReceived = DateTimeOffset.Now;
-
+            await MessageReceived.InvokeAsync(this, new MessageReceivedEventArgs());
             var json = JsonDocument.Parse(e.Message);
             var metadata = json.RootElement.GetProperty("metadata"u8);
             var messageType = metadata.GetProperty("message_type"u8).GetString();
