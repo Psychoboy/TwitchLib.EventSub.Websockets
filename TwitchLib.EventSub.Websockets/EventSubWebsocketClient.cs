@@ -34,6 +34,10 @@ namespace TwitchLib.EventSub.Websockets
         /// </summary>
         public event AsyncEventHandler<WebsocketConnectedArgs> WebsocketConnected;
         /// <summary>
+        /// Event that triggers when a message was received from the websocket
+        /// </summary>
+        public event AsyncEventHandler<MessageReceivedEventArgs> MessageReceived;
+        /// <summary>
         /// Event that triggers when the websocket disconnected
         /// </summary>
         public event AsyncEventHandler WebsocketDisconnected;
@@ -532,7 +536,10 @@ namespace TwitchLib.EventSub.Websockets
                 if (_lastReceived != DateTimeOffset.MinValue)
                     if (_keepAliveTimeout != TimeSpan.Zero)
                         if (_lastReceived.Add(_keepAliveTimeout) < DateTimeOffset.Now)
+                        {
+                            await MessageReceived.InvokeAsync(this, new MessageReceivedEventArgs());
                             break;
+                        }
 
                 await Task.Delay(TimeSpan.FromSeconds(1), _cts.Token);
             }
@@ -631,7 +638,7 @@ namespace TwitchLib.EventSub.Websockets
 
             _keepAliveTimeout = TimeSpan.FromSeconds(keepAliveTimeout ?? 10);
 
-            await WebsocketConnected.InvokeAsync(this, new WebsocketConnectedArgs { IsRequestedReconnect = _reconnectRequested });
+            await WebsocketConnected.InvokeAsync(this, new WebsocketConnectedArgs { IsRequestedReconnect = _reconnectRequested, KeepAliveTimeout = _keepAliveTimeout });
 
             _logger?.LogMessage(message);
         }
