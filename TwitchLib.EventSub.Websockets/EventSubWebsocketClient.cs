@@ -85,6 +85,10 @@ namespace TwitchLib.EventSub.Websockets
         /// </summary>
         public event AsyncEventHandler<ChannelChatMessageDeleteArgs> ChannelChatMessageDelete;
         /// <summary>
+        /// Event that triggers on "channel.chat.notification" notifications
+        /// </summary>
+        public event AsyncEventHandler<ChannelChatNotificationArgs> ChannelChatNotification;
+        /// <summary>
         /// Event that triggers on "channel.cheer" notifications
         /// </summary>
         public event AsyncEventHandler<ChannelCheerArgs> ChannelCheer;
@@ -303,6 +307,31 @@ namespace TwitchLib.EventSub.Websockets
         /// Event that triggers on "user.whisper.message" notifications
         /// </summary>
         public event AsyncEventHandler<UserWhisperMessageArgs> UserWhisperMessage;
+        
+        /// <summary>
+        /// Event that triggers on "channel.shared_chat.begin" notifications
+        /// </summary>
+        public event AsyncEventHandler<ChannelSharedChatSessionBeginArgs> ChannelSharedChatSessionBegin;
+        
+        /// <summary>
+        /// Event that triggers on "channel.shared_chat.update" notifications
+        /// </summary>
+        public event AsyncEventHandler<ChannelSharedChatSessionUpdateArgs> ChannelSharedChatSessionUpdate;
+        
+        /// <summary>
+        /// Event that triggers on "channel.shared_chat.end" notifications
+        /// </summary>
+        public event AsyncEventHandler<ChannelSharedChatSessionEndArgs> ChannelSharedChatSessionEnd;
+
+        /// <summary>
+        /// Event that triggers on "channel.unban_request.create" notifications
+        /// </summary>
+        public event AsyncEventHandler<ChannelUnbanRequestCreateArgs> ChannelUnbanRequestCreate;
+
+        /// <summary>
+        /// Event that triggers on "channel.unban_request.resolve" notifications
+        /// </summary>
+        public event AsyncEventHandler<ChannelUnbanRequestResolveArgs> ChannelUnbanRequestResolve;
 
         #endregion
 

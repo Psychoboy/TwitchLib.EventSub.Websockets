@@ -44,7 +44,6 @@
   <ItemGroup>
 	<None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\..\TwitchLib.EventSub.Core\TwitchLib.EventSub.Core\TwitchLib.EventSub.Core.csproj" />
   </ItemGroup>
