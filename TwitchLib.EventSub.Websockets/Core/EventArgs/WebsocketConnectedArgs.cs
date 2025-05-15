@@ -1,7 +1,10 @@
-﻿namespace TwitchLib.EventSub.Websockets.Core.EventArgs
+﻿using System;
+
+namespace TwitchLib.EventSub.Websockets.Core.EventArgs
 {
     public class WebsocketConnectedArgs : System.EventArgs
     {
         public bool IsRequestedReconnect { get; set; }
+        public TimeSpan KeepAliveTimeout { get; set; }
     }
 }

@@ -6,19 +6,27 @@ using TwitchLib.EventSub.Websockets.Core.EventArgs.Channel;
 using TwitchLib.EventSub.Websockets.Core.Handler;
 using TwitchLib.EventSub.Websockets.Core.Models;
 
-namespace TwitchLib.EventSub.Websockets.Handler.Channel
+namespace TwitchLib.EventSub.Websockets.Handler.Channel.Warning
 {
-    public class ChatMessageDeleteHandler : INotificationHandler
+    /// <summary>
+    /// Handler for 'channel.warning.send' notifications
+    /// </summary>
+    public class ChannelWarningSendHandler : INotificationHandler
     {
-        public string SubscriptionType => "channel.chat.message_delete";
+        /// <inheritdoc />
+        public string SubscriptionType => "channel.warning.send";
+
+        /// <inheritdoc />
         public void Handle(EventSubWebsocketClient client, string jsonString, JsonSerializerOptions serializerOptions)
         {
             try
             {
-                var data = JsonSerializer.Deserialize<EventSubNotification<ChannelChatMessageDelete>>(jsonString.AsSpan(), serializerOptions);
+                var data = JsonSerializer.Deserialize<EventSubNotification<ChannelWarningSend>>(jsonString.AsSpan(), serializerOptions);
+
                 if (data is null)
                     throw new InvalidOperationException("Parsed JSON cannot be null!");
-                client.RaiseEvent("ChannelChatMessageDelete", new ChannelChatMessageDeleteArgs { Notification = data });
+
+                client.RaiseEvent("ChannelWarningSend", new ChannelWarningSendArgs { Notification = data });
             }
             catch (Exception ex)
             {

@@ -34,6 +34,10 @@ namespace TwitchLib.EventSub.Websockets
         /// </summary>
         public event AsyncEventHandler<WebsocketConnectedArgs> WebsocketConnected;
         /// <summary>
+        /// Event that triggers when a message was received from the websocket
+        /// </summary>
+        public event AsyncEventHandler<MessageReceivedEventArgs> MessageReceived;
+        /// <summary>
         /// Event that triggers when the websocket disconnected
         /// </summary>
         public event AsyncEventHandler WebsocketDisconnected;
@@ -76,6 +80,10 @@ namespace TwitchLib.EventSub.Websockets
         /// Event that triggers on channel.chat.message notifications
         /// </summary>
         public event AsyncEventHandler<ChannelChatMessageArgs> ChannelChatMessage;
+        /// <summary>
+        /// Event that triggers on "channel.chat.message_delete" notifications
+        /// </summary>
+        public event AsyncEventHandler<ChannelChatMessageDeleteArgs> ChannelChatMessageDelete;
         /// <summary>
         /// Event that triggers on "channel.cheer" notifications
         /// </summary>
@@ -258,6 +266,16 @@ namespace TwitchLib.EventSub.Websockets
         public event AsyncEventHandler<ChannelSuspiciousUserUpdateArgs> ChannelSuspiciousUserUpdate;
 
         /// <summary>
+        /// Event that triggers on "channel.warning.acknowledge" notifications
+        /// </summary>
+        public event AsyncEventHandler<ChannelWarningAcknowledgeArgs> ChannelWarningAcknowledge;
+
+        /// <summary>
+        /// Event that triggers on "channel.warning.send" notifications
+        /// </summary>
+        public event AsyncEventHandler<ChannelWarningSendArgs> ChannelWarningSend;
+
+        /// <summary>
         /// Event that triggers on "channel.unban" notifications
         /// </summary>
         public event AsyncEventHandler<ChannelUnbanArgs> ChannelUnban;
@@ -280,6 +298,11 @@ namespace TwitchLib.EventSub.Websockets
         /// Event that triggers on "user.update" notifications
         /// </summary>
         public event AsyncEventHandler<UserUpdateArgs> UserUpdate;
+
+        /// <summary>
+        /// Event that triggers on "user.whisper.message" notifications
+        /// </summary>
+        public event AsyncEventHandler<UserWhisperMessageArgs> UserWhisperMessage;
 
         #endregion
 
@@ -531,7 +554,7 @@ namespace TwitchLib.EventSub.Websockets
         private async Task OnDataReceived(object sender, DataReceivedArgs e)
         {
             _lastReceived = DateTimeOffset.Now;
-
+            Task.Run(async () => MessageReceived.InvokeAsync(this, new MessageReceivedEventArgs()));
             var json = JsonDocument.Parse(e.Message);
             var metadata = json.RootElement.GetProperty("metadata"u8);
             var messageType = metadata.GetProperty("message_type"u8).GetString();
@@ -612,7 +635,7 @@ namespace TwitchLib.EventSub.Websockets
 
             _keepAliveTimeout = TimeSpan.FromSeconds(keepAliveTimeout ?? 10);
 
-            await WebsocketConnected.InvokeAsync(this, new WebsocketConnectedArgs { IsRequestedReconnect = _reconnectRequested });
+            await WebsocketConnected.InvokeAsync(this, new WebsocketConnectedArgs { IsRequestedReconnect = _reconnectRequested, KeepAliveTimeout = _keepAliveTimeout });
 
             _logger?.LogMessage(message);
         }
