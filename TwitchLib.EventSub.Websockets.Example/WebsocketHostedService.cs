@@ -1,10 +1,14 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using TwitchLib.Api;
+using TwitchLib.Api.Core.Enums;
+using TwitchLib.EventSub.Core.EventArgs.Channel;
 using TwitchLib.EventSub.Websockets.Core.EventArgs;
-using TwitchLib.EventSub.Websockets.Core.EventArgs.Channel;
+using TwitchLib.EventSub.Websockets.Core.Models;
 
 namespace TwitchLib.EventSub.Websockets.Example
 {
@@ -12,6 +16,8 @@ namespace TwitchLib.EventSub.Websockets.Example
     {
         private readonly ILogger<WebsocketHostedService> _logger;
         private readonly EventSubWebsocketClient _eventSubWebsocketClient;
+        private readonly TwitchAPI _twitchApi = new();
+        private string _userId;
 
         public WebsocketHostedService(ILogger<WebsocketHostedService> logger, EventSubWebsocketClient eventSubWebsocketClient)
         {
@@ -23,18 +29,29 @@ namespace TwitchLib.EventSub.Websockets.Example
             _eventSubWebsocketClient.WebsocketReconnected += OnWebsocketReconnected;
             _eventSubWebsocketClient.ErrorOccurred += OnErrorOccurred;
 
-            _eventSubWebsocketClient.ChannelFollow += OnChannelFollow;
+            _eventSubWebsocketClient.UnknownEventSubNotification += OnUnknownEventSubNotification;
+            _eventSubWebsocketClient.ChannelChatMessage += OnChannelChatMessage;
+
+            // Get ClientId and ClientSecret by register an Application here: https://dev.twitch.tv/console/apps
+            // https://dev.twitch.tv/docs/authentication/register-app/
+            _twitchApi.Settings.ClientId = "YOUR_APP_CLIENT_ID";
+            // Get Application Token with Client credentials grant flow.
+            // https://dev.twitch.tv/docs/authentication/getting-tokens-oauth/#client-credentials-grant-flow
+            _twitchApi.Settings.AccessToken = "YOUR_APPLICATION_ACCESS_TOKEN";
+
+            // You need the UserID for the User/Channel you want to get Events from.
+            // You can use await _api.Helix.Users.GetUsersAsync() for that.
+            _userId = "USER_ID";
         }
 
-        private async Task OnErrorOccurred(object sender, ErrorOccuredArgs e)
+        private async Task OnErrorOccurred(object? sender, ErrorOccuredArgs e)
         {
             _logger.LogError($"Websocket {_eventSubWebsocketClient.SessionId} - Error occurred!");
         }
 
-        private async Task OnChannelFollow(object sender, ChannelFollowArgs e)
+        private async Task OnChannelChatMessage(object? sender, ChannelChatMessageArgs e)
         {
-            var eventData = e.Notification.Payload.Event;
-            _logger.LogInformation($"{eventData.UserName} followed {eventData.BroadcasterUserName} at {eventData.FollowedAt}");
+            _logger.LogInformation($"@{e.Payload.Event.ChatterUserName} #{e.Payload.Event.BroadcasterUserName}: {e.Payload.Event.Message.Text}");
         }
 
         public async Task StartAsync(CancellationToken cancellationToken)
@@ -47,17 +64,25 @@ namespace TwitchLib.EventSub.Websockets.Example
             await _eventSubWebsocketClient.DisconnectAsync();
         }
 
-        private async Task OnWebsocketConnected(object sender, WebsocketConnectedArgs e)
+        private async Task OnWebsocketConnected(object? sender, WebsocketConnectedArgs e)
         {
             _logger.LogInformation($"Websocket {_eventSubWebsocketClient.SessionId} connected!");
 
             if (!e.IsRequestedReconnect)
             {
                 // subscribe to topics
+                // create condition Dictionary
+                // You need BOTH broadcaster and moderator values or EventSub returns an Error!
+                var condition = new Dictionary<string, string> { { "broadcaster_user_id", _userId }, { "user_id", _userId} };
+                // Create and send EventSubscription
+                await _twitchApi.Helix.EventSub.CreateEventSubSubscriptionAsync("channel.chat.message", "1", condition, EventSubTransportMethod.Websocket, _eventSubWebsocketClient.SessionId);
+                // If you want to get Events for special Events you need to additionally add the AccessToken of the ChannelOwner to the request.
+                // https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/
             }
         }
 
-        private async Task OnWebsocketDisconnected(object sender, EventArgs e)
+
+        private async Task OnWebsocketDisconnected(object? sender, WebsocketDisconnectedArgs e)
         {
             _logger.LogError($"Websocket {_eventSubWebsocketClient.SessionId} disconnected!");
 
@@ -69,9 +94,22 @@ namespace TwitchLib.EventSub.Websockets.Example
             }
         }
 
-        private async Task OnWebsocketReconnected(object sender, EventArgs e)
+        private async Task OnWebsocketReconnected(object? sender, WebsocketReconnectedArgs e)
         {
             _logger.LogWarning($"Websocket {_eventSubWebsocketClient.SessionId} reconnected");
+        }
+
+        // Handling notifications that are not (yet) implemented
+        private async Task OnUnknownEventSubNotification(object? sender, UnknownEventSubNotificationArgs e)
+        {
+            var metadata = (WebsocketEventSubMetadata)e.Metadata;
+            _logger.LogInformation("Received event that has not yet been implemented: type:{type}, version:{version}", metadata.SubscriptionType, metadata.SubscriptionVersion);
+        
+            switch((metadata.SubscriptionType, metadata.SubscriptionVersion))
+            {
+                case ("channel.chat.message", "1"): /*code to handle the event*/ break;
+                default: break;
+            }
         }
     }
 }
